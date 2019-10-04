@@ -1,0 +1,385 @@
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<HTML>
+<HEAD>
+<STYLE type="text/css">
+ol > li { margin-bottom: 7px; }
+.emphasize { font-size:x-large;
+             font-weight:bold;
+             font-style:italic;
+             text-decoration:underline;
+             vertical-align:middle;
+}
+img { margin-left:auto; margin-right:auto; display:block;margin-bottom:70px}
+body { margin-left:40px;
+       margin-right:40px;
+       padding-left:40px;
+       padding-right:40px;
+}
+table, td, th {
+    border: 2px solid gray;
+    text-align: center;
+    padding: 8px;
+}
+table.matrix td {
+    border: none;
+}
+table { 
+    margin: auto; 
+    border-collapse: collapse;
+}
+
+</STYLE>
+<link rel="stylesheet" type="text/css" href="assignments.css" />
+<TITLE>CPSC 415 - Program #3</TITLE>
+</HEAD>
+<BODY>
+
+<p align="center">CPSC 415 - Computer Systems and Architecture - Fall 2019</p>
+<h3 align="center">Program #3 &mdash; Adversarial search</h3>
+<p align="center"><b>Possible experience: up to <span class="pts">
++40XP</span> (or possibly even <span class="smallpts">+50XP</span> or,
+incredibly, <span class="smallpts">+60XP</span>)</b></p>
+<p align="center"><b>Due: Tuesday, Oct. 8th, midnight</b></p>
+
+<h2>Overview</h2>
+
+<p>This program concerns one of the most time-honored applications of AI:
+playing fully-observable, deterministic, multi-agent, zero-sum games
+(specifically, chess). You will be writing an automated chess 'bot that uses
+the <b>minimax</b> algorithm and/or other logic to compete against yourself, my
+test scripts, and other players.</p>
+
+<h2>Supporting classes</h2>
+
+<p>The files 
+<a
+href="https://github.com/WheezePuppet/cpsc415/blob/master/chess_model.py"><tt>chess_model.py</tt></a>,
+<a
+href="https://github.com/WheezePuppet/cpsc415/blob/master/chess_config.py"><tt>chess_config.py</tt></a>,
+<a
+href="https://github.com/WheezePuppet/cpsc415/blob/master/chess_player.py"><tt>chess_player.py</tt></a>,
+<a
+href="https://github.com/WheezePuppet/cpsc415/blob/master/chess_view.py"><tt>chess_view.py</tt></a>,
+<a
+href="https://github.com/WheezePuppet/cpsc415/blob/master/main_chess.py"><tt>main_chess.py</tt></a>,
+and
+<a
+href="https://github.com/WheezePuppet/cpsc415/blob/master/chess_piece.py"><tt>chess_piece.py</tt></a>
+in <a href="https://github.com/WheezePuppet/cpsc415">the class's github
+repo</a> have a few Python classes you'll need to know about.</p>
+
+<h3>The <tt>Board</tt> class (<tt>chess_model.py</tt>)</h3>
+
+<p>A <tt>Board</tt> object represents the state of a chess board. In true
+Pythonic style, <b>it is itself a dictionary that maps locations (in chess
+notation) to Piece objects</b>; <i>i.e.</i>, if you have an object
+"<tt>my_board</tt>", you can say "<tt>my_board['c5']</tt>" to get the Piece
+object that is currently on space c5. (Third column from left, fifth row from
+bottom.) You can also use "<tt>.items()</tt>" in the usual way to iterate
+through it.</p>
+
+<p>Here are the legal operations you may use on a <tt>Board</tt> object:</p>
+<ol>
+
+<li>Read-only dictionary operations such as <tt>[]</tt>, <tt>.get()</tt>, <tt>.items()</tt>, and <tt>.contains()</tt>.</li>
+
+<li>Calling "<tt>deepcopy()</tt>" on a Board (from the "<tt>copy</tt>" module) to clone it.</li>
+
+<li><tt>.get_all_available_legal_moves(color)</tt> takes a string as an
+argument (lowercase '<tt>black</tt>' or '<tt>white</tt>') and returns a list
+of 2-tuples of strings, each containing an original square and a destination
+square, in chess notation. For instance, the return value might be:
+
+<pre>
+[('a1','a2'), ('a1','b1'), ('e4','e2'), ('d4','d7')]
+</pre>
+
+which would indicate four possible moves for the player in question, the
+first of which is to move the piece in the lower-right corner up one square.
+All of these moves are guaranteed to be legal to play.</li>
+
+<li><tt>.make_move(original_location, new_location)</tt> to actually make a
+move on this chess board. <b>Important: do <i>not</i> call this to experiment
+(look ahead) with hypothetical moves. (Use <tt>deepcopy()</tt> to do that, and
+experiment with your cloned board; see above.)</b> This method raises an
+exception if you attempt to move illegally.</li>
+
+<li><tt>.get_king_location(color)</tt> to find the chess notation for the
+square on which the king of the given color rests.</li>
+
+<li><tt>.is_king_in_check(color)</tt> to find out whether a player is in check
+on this board.</li>
+
+<li><tt>.is_king_in_checkmate(color)</tt> to find out whether a player is in
+checkmate on this board.</li>
+
+</ol>
+
+<p>Anything else is considered cheating, and will result in public
+flogging.</p>
+
+<h3>The <tt>Piece</tt> class (<tt>chess_piece.py</tt>)</h3>
+
+<p><tt>Piece</tt> objects represent individual pieces on the board. The only
+thing you should ever have to do to a <tt>Piece</tt> object is call
+<tt>.get_notation()</tt> to get the <a
+href="https://en.wikipedia.org/wiki/Algebraic_notation_(chess)">chess
+notation</a> for its piece type
+(<i>e.g.</i>, "<tt>R</tt>" for a white rook, or "<tt>n</tt>" for a black
+knight.)</p>
+
+<h3>The <tt>ChessPlayer</tt> class (<tt>chess_player.py</tt>)</h3>
+
+<p>If you wanna be a playa, you'll need to create a subclass of the
+<tt>ChessPlayer</tt> class (see below).</p>
+
+
+
+<h2>Your mission</h2>
+
+<p>Your job is to create a Python class called <tt>yourUmwId_ChessPlayer</tt>,
+which inherits from <tt>ChessPlayer</tt>, an abstract base class. It should be
+in a file called <tt>yourUmwId_ChessPlayer.py</tt>. Its first few lines should
+look like this:</p>
+
+<pre>from chess_player import ChessPlayer
+
+class jsmith3_ChessPlayer(ChessPlayer):
+
+    def __init__(self, board, color):
+        super().__init__(board, color)
+
+    def get_move(self, your_remaining_time, opp_remaining_time, prog_stuff):
+        # YOUR MIND-BOGGLING CODE GOES HERE
+</pre>
+
+<p>Notice that a <tt>Board</tt> object is given to your ChessPlayer class as
+an argument to the constructor, is passed up to the superclass's constructor
+for safekeeping, and is stored in an instance variable ("<tt>self.board</tt>")
+that is accessible whenever your player feels the need to examine it. You may
+also access <tt>self.color</tt> to find out which color your player is (the
+string <tt>'black'</tt> or <tt>'white'</tt> will be returned).</p>
+
+<p>The only meaningful method of your class (besides any helper methods you
+may want to create) is <tt>.get_move()</tt>, described here in some detail. The
+purpose of the method is <i>to return a tuple describing your chosen move.</i>
+The tuples are the same as described in the return value for
+<tt>.get_all_available_legal_moves(color)</tt>, above. In fact, you could
+write a completely random chess player with this line of code:</p>
+
+<pre>
+    def get_move(self, your_remaining_time, opp_remaining_time, prog_stuff):
+        return random.choice(self.board.get_all_available_legal_moves(self.color))
+</pre>
+
+<p>and this has in fact been provided for you in the file
+<tt>Random_ChessPlayer.py</tt>, which you can pit your agent (or yourself)
+against.</p>
+
+<p>The other arguments to <tt>.get_move()</tt>, all completely
+<i>optional</i>, are as follows:</p>
+
+<ul>
+<li><tt>your_remaining_time</tt> &mdash; The number of seconds left on your chess
+clock. If this ever reaches zero, <b>life will suck since the simulator will
+thereafter ignore your agent entirely and make random moves for you
+instead.</b> It will be hard not to lose if this happens, unless it also
+happens around the same time to your opponent. Your chess clock will start at
+<b>60 seconds</b>, although I reserve the right to tweak this value between
+now and the due date as I discover what makes the most interesting competitive
+tradeoff.</li>
+<li><tt>opp_remaining_time</tt> &mdash; Same as above, but for your opponent.</li>
+<li><tt>prog_stuff</tt> &mdash; This argument, should you care to use it, gives you
+access to the progress bar status &amp; text at the bottom of the screen when
+your agent runs. It's a useful alternative to debug messages so you can see in
+a prettier way how your agent is progressing. See the <a
+href="#progressBar">Using the Progress Bar</a> section below for details on
+how to use it.</li>
+</ul>
+
+<p>Again, all three of these extra arguments are completely optional. The most
+fundamental piece of information your <tt>.get_move()</tt> method will need is
+the <tt>Board</tt> object itself, accessible via <tt>self.board</tt>.</p>
+</ul>
+
+
+<h2>Getting started</h2>
+
+<p>Get the fresh version of the class repo by doing a <tt>git pull</tt>. Make
+sure you can run the simulator in player-vs-player mode by typing:</p>
+
+<pre>
+$ python3 main_chess.py
+</pre>
+
+<p>and drag/dropping pieces. Also make sure you can quit and restart the
+simulator and run it in player-vs-computer mode with the Random player
+provided, and in computer-vs-computer mode.</p>
+
+<p>When you get bored of this, create your player class, in a file named
+exactly as above, and give it the random player implementation suggested. Make
+sure it shows up in the menu for the computer players and that you can run it.
+Then check your fledgling player class into your repo via <tt>git
+commit</tt>.</p>
+
+<p>You are now ready to begin thinking. No matter what other bells and
+whistles you eventually toss into your pot of soup, the core of your algorithm
+is going to be minimax, so take a deep breath and think about how to implement
+that.</p>
+
+
+<h2>Rules</h2>
+
+<h3>Board sizes</h3>
+
+<p>In addition to the standard 8&times;8 board, the simulation supports other
+configurations (via JSON files in the <tt>chess_configs</tt> directory). For
+tournament play (see below), I will be using the <b>mini</b> (6&times;6) board
+so things run faster. Any of them can be chosen from the left-hand menu on
+startup.</p>
+
+<h3>Crazy mode</h3>
+
+<p>The simulation can operate in two modes: regular mode (in which case the
+positions of the pieces are specified in the JSON file in
+<tt>chess_configs</tt>) or "<b>crazy mode</b>." In crazy mode, all the pieces
+behind the pawns are chosen <i>randomly</i> from the possible pieces, with two
+exceptions: (1) there will always be exactly one King per side, and (2) the
+piece configurations of the two sides will be mirror images of each other
+across the board, so that neither side has an advantage. For tournament play,
+I will in fact be using crazy mode. It can be enabled via the checkbox
+at startup, or with "<tt>crazy=True</tt>" or "<tt>crazy=False</tt>" as the
+final command-line argument to <tt>main_chess.py</tt>.</p>
+
+<h3>Pieces</h3>
+
+<p>All the standard chess pieces move in <a
+href="https://en.wikipedia.org/wiki/Chess#Movement">their standard ways</a>.
+There are also two others my kids made up:</p>
+
+<table style="margin-left:230px; margin-right:230px;border:white;">
+<tr><td style="border:0px;">
+    <table>
+    <td><img src="./S_black.gif" /></span><td style="padding:20px;font-size:11pt;text-align:left;"><b>The Princess</b>
+&mdash; like the Queen, the Princess can move in any direction (including
+diagonally), but at most <b>three</b> squares at a time. She is hence a
+limited-range Queen. (Invented by Lizzy.)</td></tr>
+    </table>
+    </td>
+    <td style="border:0px;">
+    <table>
+    <td style="font-size:11pt;text-align:left;padding:20px;"><b>The Fool</b>
+&mdash; like the Knight, the Fool can jump over other pieces. It doesn't move
+in a knight's hook, though; it simply moves <i>exactly two spaces in any
+direction</i>. (Invented by TJ.)</td><td valign="middle"><img src="./F_black.gif" /></tr>
+    </table>
+</table>
+
+
+<h3>Misc</h3>
+
+<p>All the other rules of the game are as in standard chess, except the
+following:</p>
+
+<ol>
+<li>If you advance a pawn to the last rank, it is automatically promoted to a
+<b>queen</b>. There is no other choice.</li>
+<li>There is no such thing as an <a
+href="https://en.wikipedia.org/wiki/En_passant"><i>en passant</i></a> pawn
+capture. You simply can't do it, sorry.</li>
+<li>Unlike in real chess, it is legal to castle "through" check. In other
+words, if all the spaces between your king and rook are empty, and neither
+your king nor rook have ever moved, and your king is not currently in check,
+you are free to castle even though some of the squares in between the king and
+rook may be under attack from the other side. (This comes up only rarely.)
+</li>
+<li>Drawn (tied) games are not detected in all the ways they can actually
+occur in real chess. My simulation only declares a draw when "stalemate"
+occurs: this is when your king is not in check but you have no legal moves.
+There are <a href="https://en.wikipedia.org/wiki/Draw_(chess)">other kinds of
+draws</a> in chess, including reaching the same position three different
+times, having fifty moves pass without a capture or a pawn move, or when there
+aren't enough pieces of the right type to get a checkmate no matter how hard
+you try. In practice, I'm going to terminate the game after a large number of
+moves (maybe 500) and declare a draw that way.</li>
+</ol>
+
+
+<a id="progressBar"></a>
+<h2>Using the Progress Bar (optional)</h2>
+
+<p>While your agent is thinking about its next move, you can put status
+messages on the screen and control the progress bar. Here's how:</p>
+
+<p>The <tt>prog_stuff</tt> argument given to your <tt>.get_move()</tt> method
+has two components: <tt>prog_stuff.bar</tt> and <tt>prog_stuff.text</tt>.</p>
+
+<p>Any time you want to put text in the status bar, write:</p>
+
+<pre>
+    prog_stuff.text.set('The text I want to appear')
+</pre>
+
+<p>The progress bar widget, like all progress bars, has a (numeric) maximum
+size as well as a number indicating how far along its progress is. To set its
+maximum size, in whatever units you wish, type:</p>
+
+<pre>
+    prog_stuff.bar.config(maximum=theMaximumNumber)
+</pre>
+
+<p>Then, to update its current value so that it progresses rightwards as your
+algorithm makes progress:</p>
+
+<pre>
+    prog_stuff.bar.value.set(someNumberLessThanTheMaximumNumber)
+    prog_stuff.bar.update_idletasks()
+</pre>
+
+
+<h2>Throwdown</h2>
+
+<p>On Thursday, Oct. 17th, we'll have a bracket-style single-elimination chess
+tournament on the big screen. Best of five games will determine each pairing's
+winner, with players alternating the black and white pieces for each game. This
+contest will take place on the 6&times;6 board in crazy mode. The winner and
+runner-up will obtain valuable prizes (see below).</p>
+
+<h2>Grading</h2>
+
+<p>If your agent can consistently beat my random player (provided with the
+simulation code), it will earn at least <span
+class="smallpts">+30XP</span>.</p>
+
+<p>If your agent can consistently beat my pretty sucky attempt at an actual
+thinking player, it will earn at least <span
+class="smallpts">+40XP</span>.</p>
+
+<p>The runner-up in the Oct. 17 Chess Challenge will earn <span
+class="smallpts">+50XP</span>. The grand prize winner will earn a whopping
+<span class="pts">+60XP</span>, plus a <span
+style="text-decoration:line-through;">year's supply</span> <i><b>reasonable
+amount</b></i> of Swedish Fish, plus a valuable trophy not available in
+stores.</p>
+
+<p>Finally, if your agent can beat Magnus Carlsen in a best-of-7 match under
+actual live tournament conditions, you will earn <span
+class="smallpts">+10,000XP</span> and a lifetime's supply of Norwegian
+Fish.</p>
+
+<h2>Turning it in</h2>
+
+<p>You will turn this assignment in by attaching your properly-named
+ChessPlayer Python file to an email with subject line
+"<b>CPSC 415 Program #3 turnin</b>". For an additional <span
+class="smallpts">+1XP</span>, include in the body of the email the name of
+your own original chess piece and a description of how it would work.</p>
+
+
+<h2>Getting help</h2>
+
+<p>Come to office hours, or send me email with subject line "<b>CPSC 415
+Program #3 help!!</b>"</p>
+
+</BODY>
+</HTML>
