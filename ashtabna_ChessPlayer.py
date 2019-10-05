@@ -15,6 +15,7 @@ class ashtabna_ChessPlayer(ChessPlayer):
         super().__init__(board, color)
 
     def get_move(self, your_remaining_time, opp_remaining_time, prog_stuff):
+        global MAX, MIN # make assignments global
         MAX = self.color
         MIN = negate_color(MAX)
         tree = GameTree(self.board, MAX)
@@ -30,8 +31,8 @@ def negate_color(color):
 class State:
 
     # default is no parent (root)
-    def __init__(self, state, color, parent=None):
-        self.state = state
+    def __init__(self, board, color, parent=None):
+        self.state = board
         self.parent = parent
         self.color = color
         self.children = []
@@ -45,7 +46,7 @@ class GameTree:
 
     def __init__(self, board, color):
         self.root = State(board, color)
-        self.MAX_DEPTH = 5
+        self.MAX_DEPTH = 2
 
     # generates game tree using initial state
     def compute(self):
@@ -59,7 +60,9 @@ class GameTree:
             return
 
         # adds current root's children
-        for move in moves:
+        # print("finding all children for " + root.color)
+        for move in moves[0:5]:
+            # print("can try " + str(move) + " for " + root.color)
             board = deepcopy(root.state)
             board.make_move(move[0], move[1])
             color = negate_color(root.color)
@@ -69,4 +72,4 @@ class GameTree:
         depth += 1
 
         for child in root.children:
-            self.build(root, child.state.get_all_available_legal_moves(root.parent.color), depth)
+            self.build(child, child.state.get_all_available_legal_moves(negate_color(root.color)), depth)
