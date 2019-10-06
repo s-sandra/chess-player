@@ -5,11 +5,16 @@ Sandra Shtabnaya, University of Mary Washington, fall 2019
 import random
 from chess_player import ChessPlayer
 from copy import deepcopy
+import time
 import bisect
 
 MIN = None
 MAX = None
 CUT_OFF = 2
+piece_values = {'k':50000, 'q':700, 's':600, 'r':500, 'b':300, 'n':300, 'f':300, 'p':100}
+TIME_LIMIT = 5000 # maximum amount of time spent searching is 5 seconds (5000 milliseconds)
+current_time = lambda: int(round(time.time() * 10000))
+END_TIME = current_time() + TIME_LIMIT
 
 class ashtabna_ChessPlayer(ChessPlayer):
 
@@ -28,12 +33,12 @@ class ashtabna_ChessPlayer(ChessPlayer):
         best_move = state.move
 
         # if leaf node or endgame
-        if height == 0 or state.state.is_king_in_checkmate(state.color):
+        if current_time() == END_TIME or height == 0 or state.board.is_king_in_checkmate(state.color):
             return state.eval, best_move
 
         if state.color == MAX:
             best_child = float("-inf")
-            state.add_children(state.state.get_all_available_legal_moves(MAX))
+            state.expand()
             for child in reversed(state.children):
                 eval = self.minimax(child, alpha, beta, height - 1)[0]
                 best_child = max(best_child, eval) # stores largest child value
@@ -50,7 +55,7 @@ class ashtabna_ChessPlayer(ChessPlayer):
 
         else:
             best_child = float("inf")
-            state.add_children(state.state.get_all_available_legal_moves(MIN))
+            state.expand()
             for child in reversed(state.children):
                 eval = self.minimax(child, alpha, beta, height - 1)[0]
                 best_child = min(best_child, eval) # stores smallest child value
@@ -73,10 +78,20 @@ def piece_count(state, player):
     count = 0
     for square, piece in state.items():
         piece_notation = piece.get_notation()
-        if piece_notation.isupper() and player == "white":
-            count += 1
-        elif piece_notation.islower() and player == "black":
-            count += 1
+        value = piece_values[piece_notation.lower()]
+
+        # piece belongs to white
+        if piece_notation.isupper():
+            if player == "white":
+                count += value # white gets points for white piece
+            else:
+                count += (-1 * value) # white loses points for black piece
+
+        else: # piece belongs to black
+            if player == "white":
+                count += (-1 * value) # black gets points for black piece
+            else:
+                count += value # black loses points for white piece
 
     return count
 
@@ -91,7 +106,7 @@ class State:
 
     # default is no parent (root)
     def __init__(self, board, color, parent=None, move=None, eval=0):
-        self.state = board
+        self.board = board
         self.parent = parent
         self.move = move # stores the move that created this state
         self.eval = eval
@@ -102,9 +117,10 @@ class State:
     def add_child(self, child):
         bisect.insort(self.children, child)
 
-    def add_children(self, moves):
+    def expand(self):
+        moves = self.board.get_all_available_legal_moves(self.color)
         for move in moves:
-            board = deepcopy(self.state)
+            board = deepcopy(self.board)
             board.make_move(move[0], move[1])
             state_eval = eval(board, self.color)
             color = negate_color(self.color)
