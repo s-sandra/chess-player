@@ -5,6 +5,7 @@ Sandra Shtabnaya, University of Mary Washington, fall 2019
 import random
 from chess_player import ChessPlayer
 from copy import deepcopy
+import bisect
 
 MIN = None
 MAX = None
@@ -21,20 +22,20 @@ class ashtabna_ChessPlayer(ChessPlayer):
         tree = GameTree(self.board, MAX)
         tree.compute()
         return self.minimax(tree.root, float("-inf"), float("inf"), tree.MAX_DEPTH)[1]
-        # return random.choice(self.board.get_all_available_legal_moves(self.color))
 
     def minimax(self, state, alpha, beta, depth):
 
+        best_move = state.move
+
         # if leaf node or endgame
-        if depth == 0:
-            return self.eval(state.state, state.color), state.move
+        if depth == 0 or state.state.is_king_in_checkmate(state.color):
+            return state.eval, best_move
 
         if state.color == MAX:
-            state_eval = float("-inf")
-
+            best_child = float("-inf")
             for child in state.children:
                 eval = self.minimax(child, alpha, beta, depth - 1)[0]
-                state_eval = max(state_eval, eval) # stores largest child value
+                best_child = max(best_child, eval) # stores largest child value
                 alpha = max(alpha, eval)
 
                 # if this child is better
@@ -44,13 +45,13 @@ class ashtabna_ChessPlayer(ChessPlayer):
                 if beta <= alpha:
                     break # prune
 
-            return state_eval, best_move
+            return best_child, best_move
 
         else:
-            state_eval = float("inf")
+            best_child = float("inf")
             for child in state.children:
                 eval = self.minimax(child, alpha, beta, depth - 1)[0]
-                state_eval = min(state_eval, eval) # stores smallest child value
+                best_child = min(best_child, eval) # stores smallest child value
                 beta = min(beta, eval)
 
                 # if this child is better
@@ -60,22 +61,21 @@ class ashtabna_ChessPlayer(ChessPlayer):
                 if alpha >= alpha:
                     break # prune
 
-            return state_eval, best_move
+            return best_child, best_move
 
-    def eval(self, state, player):
-        return self.piece_count(state, player)
+def eval(state, player):
+    return piece_count(state, player)
 
-    def piece_count(self, state, player):
-        count = 0
+def piece_count(state, player):
+    count = 0
+    for square, piece in state.items():
+        piece_notation = piece.get_notation()
+        if piece_notation.isupper() and player == "white":
+            count += 1
+        elif piece_notation.islower() and player == "black":
+            count += 1
 
-        for square, piece in state.items():
-            piece_notation = piece.get_notation()
-            if piece_notation.isupper() and player == "white":
-                count += 1
-            elif piece_notation.islower() and player == "black":
-                count += 1
-
-        return count
+    return count
 
 def negate_color(color):
     if color == "black":
@@ -86,15 +86,21 @@ def negate_color(color):
 class State:
 
     # default is no parent (root)
-    def __init__(self, board, color, parent=None, move=None):
+    def __init__(self, board, color, parent=None, move=None, eval=0):
         self.state = board
         self.parent = parent
         self.move = move # stores the move that created this state
+        self.eval = eval
         self.color = color
         self.children = []
 
+    # adds child in order
     def add_child(self, child):
-        self.children.append(child)
+        bisect.insort(self.children, child)
+
+    # defines how to sort states
+    def __lt__(self, other):
+        return self.eval < other.eval
 
 
 # data structure for computing chess game tree
@@ -116,13 +122,12 @@ class GameTree:
             return
 
         # adds current root's children
-        # print("finding all children for " + root.color)
         for move in moves[0:5]:
-            # print("can try " + str(move) + " for " + root.color)
             board = deepcopy(root.state)
             board.make_move(move[0], move[1])
+            state_eval = eval(board, root.color)
             color = negate_color(root.color)
-            child = State(board, color, root, move)
+            child = State(board, color, root, move, state_eval)
             root.add_child(child)
 
         depth += 1
