@@ -9,6 +9,7 @@ import bisect
 
 MIN = None
 MAX = None
+CUT_OFF = 2
 
 class ashtabna_ChessPlayer(ChessPlayer):
 
@@ -19,22 +20,22 @@ class ashtabna_ChessPlayer(ChessPlayer):
         global MAX, MIN # make assignments global
         MAX = self.color
         MIN = negate_color(MAX)
-        tree = GameTree(self.board, MAX)
-        tree.compute()
-        return self.minimax(tree.root, float("-inf"), float("inf"), tree.MAX_DEPTH)[1]
+        root = State(self.board, MAX)
+        return self.minimax(root, float("-inf"), float("inf"), CUT_OFF)[1]
 
-    def minimax(self, state, alpha, beta, depth):
+    def minimax(self, state, alpha, beta, height):
 
         best_move = state.move
 
         # if leaf node or endgame
-        if depth == 0 or state.state.is_king_in_checkmate(state.color):
+        if height == 0 or state.state.is_king_in_checkmate(state.color):
             return state.eval, best_move
 
         if state.color == MAX:
             best_child = float("-inf")
-            for child in state.children:
-                eval = self.minimax(child, alpha, beta, depth - 1)[0]
+            state.add_children(state.state.get_all_available_legal_moves(MAX))
+            for child in reversed(state.children):
+                eval = self.minimax(child, alpha, beta, height - 1)[0]
                 best_child = max(best_child, eval) # stores largest child value
                 alpha = max(alpha, eval)
 
@@ -49,8 +50,9 @@ class ashtabna_ChessPlayer(ChessPlayer):
 
         else:
             best_child = float("inf")
-            for child in state.children:
-                eval = self.minimax(child, alpha, beta, depth - 1)[0]
+            state.add_children(state.state.get_all_available_legal_moves(MIN))
+            for child in reversed(state.children):
+                eval = self.minimax(child, alpha, beta, height - 1)[0]
                 best_child = min(best_child, eval) # stores smallest child value
                 beta = min(beta, eval)
 
@@ -62,6 +64,7 @@ class ashtabna_ChessPlayer(ChessPlayer):
                     break # prune
 
             return best_child, best_move
+
 
 def eval(state, player):
     return piece_count(state, player)
@@ -82,6 +85,7 @@ def negate_color(color):
         return "white"
     return "black"
 
+
 # data structure for storing nodes in game tree
 class State:
 
@@ -94,43 +98,19 @@ class State:
         self.color = color
         self.children = []
 
-    # adds child in order
+    # adds child in ascending order
     def add_child(self, child):
         bisect.insort(self.children, child)
+
+    def add_children(self, moves):
+        for move in moves:
+            board = deepcopy(self.state)
+            board.make_move(move[0], move[1])
+            state_eval = eval(board, self.color)
+            color = negate_color(self.color)
+            child = State(board, color, self, move, state_eval)
+            self.add_child(child)
 
     # defines how to sort states
     def __lt__(self, other):
         return self.eval < other.eval
-
-
-# data structure for computing chess game tree
-class GameTree:
-
-    def __init__(self, board, color):
-        self.root = State(board, color)
-        self.MAX_DEPTH = 2
-
-    # generates game tree using initial state
-    def compute(self):
-        possible_moves = self.root.state.get_all_available_legal_moves(MAX)
-        self.build(self.root, possible_moves, 0)
-
-    def build(self, root, moves, depth):
-
-        # base case
-        if depth == self.MAX_DEPTH:
-            return
-
-        # adds current root's children
-        for move in moves[0:5]:
-            board = deepcopy(root.state)
-            board.make_move(move[0], move[1])
-            state_eval = eval(board, root.color)
-            color = negate_color(root.color)
-            child = State(board, color, root, move, state_eval)
-            root.add_child(child)
-
-        depth += 1
-
-        for child in root.children:
-            self.build(child, child.state.get_all_available_legal_moves(negate_color(root.color)), depth)
