@@ -8,39 +8,43 @@ from copy import deepcopy
 import time
 import bisect
 
-MIN = None
-MAX = None
-WIN = 100000
-CUT_OFF = 2
-piece_values = {'k':50000, 'q':700, 's':600, 'r':500, 'b':300, 'n':300, 'f':300, 'p':100}
-TIME_LIMIT = 5000 # maximum amount of time spent searching is 5 seconds (5000 milliseconds)
-current_time = lambda: int(round(time.time() * 10000))
-END_TIME = current_time() + TIME_LIMIT
 tt = {} # transposition table
+piece_values = {'k':50000, 'q':700, 's':600, 'r':500, 'b':300, 'n':300, 'f':300, 'p':100}
+WIN = 100000
 
 class ashtabna_ChessPlayer(ChessPlayer):
 
     def __init__(self, board, color):
         super().__init__(board, color)
+        self.MIN = None
+        self.MAX = None
+        self.TIME_LIMIT = 5000 # maximum amount of time spent searching is 5 seconds (5000 milliseconds)
+        self.current_time = lambda: int(round(time.time() * 10000))
+        self.END_TIME = self.current_time() + self.TIME_LIMIT
 
     def get_move(self, your_remaining_time, opp_remaining_time, prog_stuff):
-        global MAX, MIN # make assignments global
-        MAX = self.color
-        MIN = negate_color(MAX)
-        root = State(self.board, MAX)
-        move = self.choose_move(root, TIME_LIMIT)
+        # global MAX, MIN # make assignments global
+        self.MAX = self.color
+        self.MIN = negate_color(self.MAX)
+        root = State(self.board, self.MAX)
+        move = self.choose_move(root, self.TIME_LIMIT)
 
         if move is None:
             return random.choice(self.board.get_all_available_legal_moves(self.color))
         return move
 
+    def zobrist_key(self, board):
+        key = 0
+        # for square, piece in board.items():
+            # key ^= table[][]
+
     def choose_move(self, root, time):
         depth = 1
-        end_time = current_time() + time
+        end_time = self.current_time() + time
         best_move = None
 
         # iterative deepening search
-        while current_time() < end_time:
+        while self.current_time() < end_time:
             # try seeing more moves ahead, if there is time
             eval, move = self.minimax(root, float("-inf"), float("inf"), depth, end_time)
             best_move = move
@@ -56,10 +60,10 @@ class ashtabna_ChessPlayer(ChessPlayer):
         best_move = None
 
         # if leaf node or endgame
-        if current_time() >= time_limit or depth == 0 or state.eval == WIN:
+        if self.current_time() >= time_limit or depth == 0 or state.eval == WIN:
             return state.eval, best_move
 
-        if state.color == MAX:
+        if state.color == self.MAX:
             best_child = float("-inf")
             state.expand()
             for child in reversed(state.children):
