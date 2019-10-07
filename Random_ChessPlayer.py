@@ -14,5 +14,5 @@ class Random_ChessPlayer(ChessPlayer):
 
     def get_move(self, your_remaining_time, opp_remaining_time, prog_stuff):
         return random.choice(
-            self.board.get_all_available_legal_moves(self.color))
+self.board.get_all_available_legal_moves(self.color))
 

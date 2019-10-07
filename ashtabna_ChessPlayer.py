@@ -10,11 +10,13 @@ import bisect
 
 MIN = None
 MAX = None
+WIN = 100000
 CUT_OFF = 2
 piece_values = {'k':50000, 'q':700, 's':600, 'r':500, 'b':300, 'n':300, 'f':300, 'p':100}
 TIME_LIMIT = 5000 # maximum amount of time spent searching is 5 seconds (5000 milliseconds)
 current_time = lambda: int(round(time.time() * 10000))
 END_TIME = current_time() + TIME_LIMIT
+tt = {} # transposition table
 
 class ashtabna_ChessPlayer(ChessPlayer):
 
@@ -26,21 +28,42 @@ class ashtabna_ChessPlayer(ChessPlayer):
         MAX = self.color
         MIN = negate_color(MAX)
         root = State(self.board, MAX)
-        return self.minimax(root, float("-inf"), float("inf"), CUT_OFF)[1]
+        move = self.choose_move(root, TIME_LIMIT)
 
-    def minimax(self, state, alpha, beta, height):
+        if move is None:
+            return random.choice(self.board.get_all_available_legal_moves(self.color))
+        return move
 
-        best_move = state.move
+    def choose_move(self, root, time):
+        depth = 1
+        end_time = current_time() + time
+        best_move = None
+
+        # iterative deepening search
+        while current_time() < end_time:
+            # try seeing more moves ahead, if there is time
+            eval, move = self.minimax(root, float("-inf"), float("inf"), depth, end_time)
+            best_move = move
+            depth += 1
+
+            if eval == WIN:
+                return move
+
+        return best_move
+
+    def minimax(self, state, alpha, beta, depth, time_limit):
+
+        best_move = None
 
         # if leaf node or endgame
-        if current_time() == END_TIME or height == 0 or state.board.is_king_in_checkmate(state.color):
+        if current_time() >= time_limit or depth == 0 or state.eval == WIN:
             return state.eval, best_move
 
         if state.color == MAX:
             best_child = float("-inf")
             state.expand()
             for child in reversed(state.children):
-                eval = self.minimax(child, alpha, beta, height - 1)[0]
+                eval = self.minimax(child, alpha, beta, depth - 1, time_limit)[0]
                 best_child = max(best_child, eval) # stores largest child value
                 alpha = max(alpha, eval)
 
@@ -57,7 +80,7 @@ class ashtabna_ChessPlayer(ChessPlayer):
             best_child = float("inf")
             state.expand()
             for child in reversed(state.children):
-                eval = self.minimax(child, alpha, beta, height - 1)[0]
+                eval = self.minimax(child, alpha, beta, depth - 1, time_limit)[0]
                 best_child = min(best_child, eval) # stores smallest child value
                 beta = min(beta, eval)
 
@@ -74,9 +97,13 @@ class ashtabna_ChessPlayer(ChessPlayer):
 def eval(state, player):
     return piece_count(state, player)
 
-def piece_count(state, player):
+def piece_count(board, player):
+
+    if board.is_king_in_checkmate(negate_color(player)):
+        return WIN
+
     count = 0
-    for square, piece in state.items():
+    for square, piece in board.items():
         piece_notation = piece.get_notation()
         value = piece_values[piece_notation.lower()]
 
