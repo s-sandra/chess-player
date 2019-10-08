@@ -44,7 +44,7 @@ class ashtabna_ChessPlayer(ChessPlayer):
         z_table = [[[random.randint(1, 2 ** cell_count - 1) for i in range(16)] for j in range(row_count + 1)] for k in range(row_count + 1)]
 
     def choose_move(self, root, time):
-        depth = 1
+        depth = 0
         end_time = self.current_time() + time
         best_move = None
 
@@ -97,9 +97,10 @@ class ashtabna_ChessPlayer(ChessPlayer):
                     best_move = child.move
 
                 if beta <= alpha:
+                    t_table[z_key] = HashEntry(best_move, best_child, "MAX", depth)
                     break # prune
 
-            t_table[z_key] = HashEntry(best_move, best_child, "MAX", depth)
+            t_table[z_key] = HashEntry(best_move, best_child, "EXACT", depth)
             return best_child, best_move
 
         else:
@@ -114,10 +115,11 @@ class ashtabna_ChessPlayer(ChessPlayer):
                 if beta == eval:
                     best_move = child.move
 
-                if alpha >= alpha:
+                if beta <= alpha:
+                    t_table[z_key] = HashEntry(best_move, best_child, "MIN", depth)
                     break # prune
 
-        t_table[z_key] = HashEntry(best_move, best_child, "MIN", depth)
+        t_table[z_key] = HashEntry(best_move, best_child, "EXACT", depth)
         return best_child, best_move
 
 
