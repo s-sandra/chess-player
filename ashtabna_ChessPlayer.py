@@ -3,12 +3,12 @@ CPSC 415 -- Homework #3 chess strategy
 Sandra Shtabnaya, University of Mary Washington, fall 2019
 '''
 import random
+import math
 from chess_player import ChessPlayer
 from copy import deepcopy
 import time
 import bisect
 
-tt = {} # transposition table
 piece_values = {'k':50000, 'q':700, 's':600, 'r':500, 'b':300, 'n':300, 'f':300, 'p':100}
 WIN = 100000
 
@@ -21,9 +21,11 @@ class ashtabna_ChessPlayer(ChessPlayer):
         self.TIME_LIMIT = 5000 # maximum amount of time spent searching is 5 seconds (5000 milliseconds)
         self.current_time = lambda: int(round(time.time() * 10000))
         self.END_TIME = self.current_time() + self.TIME_LIMIT
+        self.z_table = None # table of zobrist keys
+        self.t_table = {} # transposition table
+        self.make_zobrist_table()
 
     def get_move(self, your_remaining_time, opp_remaining_time, prog_stuff):
-        # global MAX, MIN # make assignments global
         self.MAX = self.color
         self.MIN = negate_color(self.MAX)
         root = State(self.board, self.MAX)
@@ -33,10 +35,58 @@ class ashtabna_ChessPlayer(ChessPlayer):
             return random.choice(self.board.get_all_available_legal_moves(self.color))
         return move
 
-    def zobrist_key(self, board):
+    def make_zobrist_table(self):
+        piece_count = len(self.board)
+        cell_count = (piece_count / 4)**2
+        row_count = int(math.sqrt(cell_count))
+        # 16 different kinds of pieces, row_count by row_count sized board
+        self.z_table = [[[random.randint(1, 2 ** cell_count - 1) for i in range(16)] for j in range(row_count + 1)] for k in range(row_count + 1)]
+
+    def index_for(self, piece):
+        if piece == 'P':
+            return 0
+        elif piece == 'p':
+            return 8
+        elif piece == 'N':
+            return 1
+        elif piece == 'n':
+            return 9
+        elif piece == 'B':
+            return 2
+        elif piece == 'b':
+            return 10
+        elif piece == 'R':
+            return 3
+        elif piece == 'r':
+            return 11
+        elif piece == 'S':
+            return 4
+        elif piece == 's':
+            return 12
+        elif piece == 'f':
+            return 13
+        elif piece == 'F':
+            return 5
+        elif piece == 'Q':
+            return 6
+        elif piece == 'q':
+            return 14
+        elif piece == 'K':
+            return 7
+        elif piece == 'k':
+            return 15
+        else:
+            return -1
+
+    def generate_zobrist_key(self, board):
         key = 0
-        # for square, piece in board.items():
-            # key ^= table[][]
+        for square, piece in board.items():
+            piece_notation = piece.get_notation()
+            row = ord(square[0]) - 97
+            col = int(square[1])
+            piece_val = self.index_for(piece_notation)
+            key ^= self.z_table[row][col][piece_val]
+        return key
 
     def choose_move(self, root, time):
         depth = 1
@@ -58,10 +108,25 @@ class ashtabna_ChessPlayer(ChessPlayer):
     def minimax(self, state, alpha, beta, depth, time_limit):
 
         best_move = None
+        z_key = self.generate_zobrist_key(state.board)
 
         # if leaf node or endgame
         if self.current_time() >= time_limit or depth == 0 or state.eval == WIN:
+            self.t_table[z_key] = HashEntry(best_move, state.eval, "EXACT", depth)
             return state.eval, best_move
+
+        if z_key in self.z_table: # if we've already evaluated this chess board before
+            entry = self.z_table[z_key]
+
+            if entry.depth >= depth:
+                if entry.type == "MIN":
+                    if entry.score > alpha:
+                        alpha = entry.score
+                elif entry.type == "MAX":
+                    if entry.score < beta:
+                        beta = entry.score
+                else:
+                    return entry.score, entry.move
 
         if state.color == self.MAX:
             best_child = float("-inf")
@@ -78,6 +143,7 @@ class ashtabna_ChessPlayer(ChessPlayer):
                 if beta <= alpha:
                     break # prune
 
+            self.t_table[z_key] = HashEntry(best_move, best_child, "MAX", depth)
             return best_child, best_move
 
         else:
@@ -95,7 +161,8 @@ class ashtabna_ChessPlayer(ChessPlayer):
                 if alpha >= alpha:
                     break # prune
 
-            return best_child, best_move
+        self.t_table[z_key] = HashEntry(best_move, best_child, "MIN", depth)
+        return best_child, best_move
 
 
 def eval(state, player):
@@ -130,6 +197,16 @@ def negate_color(color):
     if color == "black":
         return "white"
     return "black"
+
+
+# data structure for transposition table entry
+class HashEntry:
+
+    def __init__(self, move, eval, type, depth):
+        self.move = move
+        self.score = eval
+        self.type = type
+        self.depth = depth
 
 
 # data structure for storing nodes in game tree
